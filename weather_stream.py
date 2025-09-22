@@ -1,25 +1,32 @@
 import os
-import pyspark
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json, to_timestamp, current_timestamp, when, struct, to_json
+from pyspark.sql.functions import (
+    col, from_json, to_timestamp, current_timestamp, when,
+    struct, to_json
+)
 
 KAFKA_BOOTSTRAP = "localhost:9092"
 SOURCE_TOPIC = "weather_stream"
 TARGET_TOPIC = "weather_transformed"
 
-# Schéma JSON attendu depuis ton producteur
+# Nouveau schéma correspondant au payload du producteur kafka-producer-api.py
 schema_json = """
 latitude DOUBLE,
 longitude DOUBLE,
 timestamp STRING,
-temperature DOUBLE,
-windspeed DOUBLE,
-winddirection DOUBLE,
-raw STRUCT<
-  time: STRING,
-  temperature: DOUBLE,
-  windspeed: DOUBLE,
-  winddirection: DOUBLE
+timestamp_epoch LONG,
+weather STRUCT<
+  temperature DOUBLE,
+  windspeed DOUBLE,
+  winddirection DOUBLE,
+  weathercode INT,
+  is_day INT,
+  time STRING
+>,
+location_info STRUCT<
+  timezone STRING,
+  timezone_abbreviation STRING,
+  elevation DOUBLE
 >
 """
 
@@ -33,28 +40,41 @@ spark = (
     )
     .getOrCreate()
 )
-
 spark.sparkContext.setLogLevel("WARN")
 
-# Lecture flux Kafka
+# Lecture du flux Kafka
 raw_df = (
     spark.readStream
     .format("kafka")
     .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP)
     .option("subscribe", SOURCE_TOPIC)
-    .option("startingOffsets", "latest")   # changer en earliest si besoin
+    .option("startingOffsets", "latest")
     .load()
 )
 
-# value est binaire -> string -> JSON
+# value (bytes) -> string -> parsing JSON
 parsed = raw_df.selectExpr("CAST(value AS STRING) AS json_str") \
     .select(from_json(col("json_str"), schema_json).alias("data")) \
     .select("data.*")
 
-# event_time à partir du champ timestamp (sinon fallback now)
-with_time = parsed.withColumn(
+# Aplatissement des champs imbriqués weather.*
+flattened = (
+    parsed
+    .withColumn("temperature", col("weather.temperature"))
+    .withColumn("windspeed", col("weather.windspeed"))
+    .withColumn("winddirection", col("weather.winddirection"))
+    .withColumn("weathercode", col("weather.weathercode"))
+    .withColumn("is_day", col("weather.is_day"))
+    .withColumn("timezone", col("location_info.timezone"))
+    .withColumn("timezone_abbreviation", col("location_info.timezone_abbreviation"))
+    .withColumn("elevation", col("location_info.elevation"))
+)
+
+# event_time (priorité au champ timestamp ISO, fallback ingestion)
+with_time = flattened.withColumn(
     "event_time",
-    when(col("timestamp").isNotNull(), to_timestamp(col("timestamp"))).otherwise(current_timestamp())
+    when(col("timestamp").isNotNull(), to_timestamp(col("timestamp")))
+    .otherwise(current_timestamp())
 )
 
 # Alertes vent
@@ -73,30 +93,36 @@ final_df = with_wind_alert.withColumn(
     .otherwise("level_0")
 )
 
-# Construction JSON de sortie
+# Construction JSON de sortie (ajoute quelques métadonnées utiles)
 out_df = final_df.select(
     to_json(
         struct(
             "event_time",
+            "timestamp",          # original API time
+            "timestamp_epoch",    # ingestion epoch
             "latitude",
             "longitude",
             "temperature",
             "windspeed",
             "winddirection",
+            "weathercode",
+            "is_day",
             "wind_alert_level",
-            "heat_alert_level"
+            "heat_alert_level",
+            "timezone",
+            "timezone_abbreviation",
+            "elevation"
         )
     ).alias("value")
 )
 
-# Écriture vers le topic cible
 query = (
     out_df
     .writeStream
     .format("kafka")
     .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP)
     .option("topic", TARGET_TOPIC)
-    .option("checkpointLocation", "./chk_weather_transform")  # dossier local checkpoint
+    .option("checkpointLocation", "./chk_weather_transform")
     .outputMode("append")
     .start()
 )
