@@ -1,8 +1,4 @@
-"""
-Exercice 7 :
-Consommer le topic weather_transformed et stocker UNIQUEMENT les alertes dans HDFS
-Structure: /hdfs-data/{country}/{city}/alerts.json (append en JSON Lines)
-"""
+
 
 from kafka import KafkaConsumer
 from hdfs import InsecureClient
