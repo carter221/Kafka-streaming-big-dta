@@ -2,7 +2,7 @@ import argparse
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, from_json, when, lit, coalesce, to_json, struct, concat_ws,
-    to_timestamp
+    to_timestamp,to_date
 )
 
 KAFKA_BOOTSTRAP = "localhost:9092"
