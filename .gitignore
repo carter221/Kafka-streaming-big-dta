@@ -1,3 +1,4 @@
 kafka-venv/
 chk_weather_transform/
 chk_weather_agg_5m/
+.local-jdk/

@@ -10,3 +10,6 @@ Ici je consomme le topic weather_transformed pour voir les messages transformés
 
 
 Pour l'exercie 9 le producer fait lenregistrement dans le hfdfs directement apre le call api
+
+
+docker compose exec spark-client spark-submit --master local[2] /app/weather_history_transformed.py

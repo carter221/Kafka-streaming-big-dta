@@ -39,7 +39,8 @@ HOURLY_PARAMS = [
     "temperature_2m",
     "windspeed_10m",
     "winddirection_10m",
-    "weathercode"
+    "weathercode",
+    "precipitation"        
 ]
 
 def geocode_city(name: str, country: str = None) -> Tuple[float, float, str, str]:

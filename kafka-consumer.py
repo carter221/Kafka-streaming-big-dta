@@ -16,7 +16,7 @@ TOPIC = os.getenv("KAFKA_TOPIC", "weather_transformed")
 GROUP_ID = os.getenv("KAFKA_GROUP_ID", "weather_hdfs_consumer")
 AUTO_OFFSET = os.getenv("KAFKA_AUTO_OFFSET", "latest")  # earliest | latest
 
-HDFS_URL = os.getenv("HDFS_NAMENODE_HTTP", "http://localhost:9870")  # adapter selon env (docker: http://namenode:9870)
+HDFS_URL = os.getenv("HDFS_NAMENODE_HTTP", "http://namenode:9870")  # adapter selon env (docker: http://namenode:9870)
 HDFS_BASE = os.getenv("HDFS_BASE_PATH", "/hdfs-data")
 HDFS_USER = os.getenv("HDFS_USER", "root")
 
