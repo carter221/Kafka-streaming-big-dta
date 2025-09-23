@@ -1,4 +1,4 @@
-# Kafka + Zookeeper (legacy) corrigé
+version: "3.8"
 services:
   zookeeper:
     image: wurstmeister/zookeeper
@@ -8,8 +8,8 @@ services:
   kafka:
     image: wurstmeister/kafka
     ports:
-      - "9092:9092"     # interne + mapping ext (OUTSIDE)
-      - "29092:29092"   # listener interne alternatif si besoin
+      - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_BROKER_ID: 1
@@ -19,3 +19,39 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
     depends_on:
       - zookeeper
+
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    environment:
+      - CLUSTER_NAME=hdfs-cluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+      # Demander au client d'utiliser les hostnames (utile si on force localhost côté datanode)
+      - HDFS_CONF_dfs_client_use_datanode_hostname=true
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hdfs-namenode:/hadoop/dfs/name
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    depends_on:
+      - namenode
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+      - SERVICE_PRECONDITION=namenode:9870
+      # Forcer le hostname que le NameNode va exposer
+      - HDFS_CONF_dfs_datanode_hostname=localhost
+      - HDFS_CONF_dfs_client_use_datanode_hostname=true
+      # Désactiver la vérification IP/hostname (sinon mismatch localhost)
+      - HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check=false
+    ports:
+      - "9864:9864"
+    volumes:
+      - hdfs-datanode:/hadoop/dfs/data
+
+volumes:
+  hdfs-namenode:
+  hdfs-datanode:

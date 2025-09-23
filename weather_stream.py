@@ -89,11 +89,11 @@ def main(from_earliest: bool):
               .withColumn("wind_alert_level",
                           when(col("windspeed") >= 60, lit("level_2"))
                           .when(col("windspeed") >= 40, lit("level_1"))
-                          .otherwise(lit("normal")))
+                          .otherwise(lit("level_1")))
               .withColumn("heat_alert_level",
                           when(col("temperature") >= 38, lit("level_2"))
                           .when(col("temperature") >= 32, lit("level_1"))
-                          .otherwise(lit("normal")))
+                          .otherwise(lit("level_1")))
               )
 
     # (Optionnel) conversion timestamp interne (non envoyé)

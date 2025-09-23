@@ -1,3 +1,5 @@
 kafka-python
 requests
 pyspark==3.5.2
+hdfs==2.7.0
+geopy==2.4.0
